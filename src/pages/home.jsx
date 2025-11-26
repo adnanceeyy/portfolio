@@ -3,6 +3,218 @@ import { Renderer, Program, Mesh, Triangle } from "ogl";
 import { IconBrandInstagram } from "@tabler/icons-react";
 import { gsap } from "gsap";
 
+/* -----------------------------
+   FuzzyText component (single source)
+   ----------------------------- */
+const FuzzyText = ({
+  children,
+  fontSize = "clamp(2rem, 10vw, 10rem)",
+  fontWeight = 900,
+  fontFamily = "inherit",
+  color = "#fff",
+  enableHover = true,
+  baseIntensity = 0.18,
+  hoverIntensity = 0.5,
+}) => {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    let animationFrameId;
+    let isCancelled = false;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const init = async () => {
+      if (document.fonts?.ready) {
+        await document.fonts.ready;
+      }
+      if (isCancelled) return;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      const computedFontFamily =
+        fontFamily === "inherit"
+          ? window.getComputedStyle(canvas).fontFamily || "sans-serif"
+          : fontFamily;
+
+      const fontSizeStr =
+        typeof fontSize === "number" ? `${fontSize}px` : fontSize;
+      let numericFontSize;
+      if (typeof fontSize === "number") {
+        numericFontSize = fontSize;
+      } else {
+        // measure computed pixel size for the provided fontSize string
+        const temp = document.createElement("span");
+        temp.style.fontSize = fontSize;
+        temp.style.fontFamily = computedFontFamily; // ensure correct family when measuring
+        temp.style.position = "absolute";
+        temp.style.visibility = "hidden";
+        temp.innerText = "M";
+        document.body.appendChild(temp);
+        const computedSize = window.getComputedStyle(temp).fontSize;
+        numericFontSize = parseFloat(computedSize) || 100;
+        document.body.removeChild(temp);
+      }
+
+      const text = React.Children.toArray(children).join("");
+
+      const offscreen = document.createElement("canvas");
+      const offCtx = offscreen.getContext("2d");
+      if (!offCtx) return;
+
+      offCtx.font = `${fontWeight} ${fontSizeStr} ${computedFontFamily}`;
+      offCtx.textBaseline = "alphabetic";
+      const metrics = offCtx.measureText(text);
+
+      const actualLeft = metrics.actualBoundingBoxLeft ?? 0;
+      const actualRight = metrics.actualBoundingBoxRight ?? metrics.width;
+      const actualAscent = metrics.actualBoundingBoxAscent ?? numericFontSize;
+      const actualDescent =
+        metrics.actualBoundingBoxDescent ?? numericFontSize * 0.2;
+
+      const textBoundingWidth = Math.ceil(actualLeft + actualRight);
+      const tightHeight = Math.ceil(actualAscent + actualDescent);
+
+      const extraWidthBuffer = 10;
+      const offscreenWidth = textBoundingWidth + extraWidthBuffer;
+
+      offscreen.width = offscreenWidth;
+      offscreen.height = tightHeight;
+
+      const xOffset = extraWidthBuffer / 2;
+      offCtx.font = `${fontWeight} ${fontSizeStr} ${computedFontFamily}`;
+      offCtx.textBaseline = "alphabetic";
+      offCtx.fillStyle = color;
+      offCtx.fillText(text, xOffset - actualLeft, actualAscent);
+
+      const horizontalMargin = 50;
+      const verticalMargin = 0;
+      canvas.width = offscreenWidth + horizontalMargin * 2;
+      canvas.height = tightHeight + verticalMargin * 2;
+      const drawCtx = canvas.getContext("2d");
+      drawCtx.translate(horizontalMargin, verticalMargin);
+
+      const interactiveLeft = horizontalMargin + xOffset;
+      const interactiveTop = verticalMargin;
+      const interactiveRight = interactiveLeft + textBoundingWidth;
+      const interactiveBottom = interactiveTop + tightHeight;
+
+      let isHovering = false;
+      const fuzzRange = 30;
+
+      const run = () => {
+        if (isCancelled) return;
+        drawCtx.clearRect(
+          -fuzzRange,
+          -fuzzRange,
+          offscreenWidth + 2 * fuzzRange,
+          tightHeight + 2 * fuzzRange
+        );
+        const intensity = isHovering ? hoverIntensity : baseIntensity;
+        for (let j = 0; j < tightHeight; j++) {
+          const dx = Math.floor(intensity * (Math.random() - 0.5) * fuzzRange);
+          drawCtx.drawImage(
+            offscreen,
+            0,
+            j,
+            offscreenWidth,
+            1,
+            dx,
+            j,
+            offscreenWidth,
+            1
+          );
+        }
+        animationFrameId = window.requestAnimationFrame(run);
+      };
+
+      run();
+
+      const isInsideTextArea = (x, y) => {
+        return (
+          x >= interactiveLeft &&
+          x <= interactiveRight &&
+          y >= interactiveTop &&
+          y <= interactiveBottom
+        );
+      };
+
+      const handleMouseMove = (e) => {
+        if (!enableHover) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        isHovering = isInsideTextArea(x, y);
+      };
+
+      const handleMouseLeave = () => {
+        isHovering = false;
+      };
+
+      const handleTouchMove = (e) => {
+        if (!enableHover) return;
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const touch = e.touches[0];
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
+        isHovering = isInsideTextArea(x, y);
+      };
+
+      const handleTouchEnd = () => {
+        isHovering = false;
+      };
+
+      if (enableHover) {
+        canvas.addEventListener("mousemove", handleMouseMove);
+        canvas.addEventListener("mouseleave", handleMouseLeave);
+        canvas.addEventListener("touchmove", handleTouchMove, {
+          passive: false,
+        });
+        canvas.addEventListener("touchend", handleTouchEnd);
+      }
+
+      const cleanup = () => {
+        window.cancelAnimationFrame(animationFrameId);
+        if (enableHover) {
+          canvas.removeEventListener("mousemove", handleMouseMove);
+          canvas.removeEventListener("mouseleave", handleMouseLeave);
+          canvas.removeEventListener("touchmove", handleTouchMove);
+          canvas.removeEventListener("touchend", handleTouchEnd);
+        }
+      };
+
+      // expose cleanup to outer scope (used in effect cleanup)
+      canvas.cleanupFuzzyText = cleanup;
+    };
+
+    init();
+
+    return () => {
+      isCancelled = true;
+      window.cancelAnimationFrame(animationFrameId);
+      if (canvas && canvas.cleanupFuzzyText) {
+        canvas.cleanupFuzzyText();
+      }
+    };
+  }, [
+    children,
+    fontSize,
+    fontWeight,
+    fontFamily,
+    color,
+    enableHover,
+    baseIntensity,
+    hoverIntensity,
+  ]);
+
+  return <canvas ref={canvasRef} style={{ display: "block" }} />;
+};
+
+/* -----------------------------
+   Helper & GradientBlinds (unchanged but cleaned)
+   ----------------------------- */
 const MAX_COLORS = 8;
 
 const hexToRGB = (hex) => {
@@ -86,11 +298,9 @@ void main() {
 }
 `;
 
-    const fragment = `
-#ifdef GL_ES
+    const fragment = `#ifdef GL_ES
 precision mediump float;
 #endif
-
 uniform vec3  iResolution;
 uniform vec2  iMouse;
 uniform float iTime;
@@ -275,7 +485,6 @@ void main() {
       const scale = renderer.dpr || 1;
       const x = (e.clientX - rect.left) * scale;
       const y = (rect.height - (e.clientY - rect.top)) * scale;
-
       mouseTargetRef.current = [x, y];
 
       if (mouseDampening <= 0) {
@@ -351,24 +560,41 @@ void main() {
   return (
     <div
       ref={containerRef}
-      className={`w-full h-full overflow-hidden relative ${className}`}
+      className={`w-full h-full overflow-hidden relative ${className ?? ""}`}
       style={{ mixBlendMode }}
     />
   );
 };
 
+/* -----------------------------
+   Home page (uses FuzzyText and GradientBlinds)
+   ----------------------------- */
 export default function Home() {
-   const dotRef = useRef(null);
+  const dotRef = useRef(null);
 
   useEffect(() => {
     const dot = dotRef.current;
+    if (!dot) return;
+
+    // hide native cursor
+    const prevCursor = document.body.style.cursor;
     document.body.style.cursor = "none";
 
+    // initialise dot using gsap set so transforms work predictably
+    gsap.set(dot, {
+      x: -100,
+      y: -100,
+      width: 12,
+      height: 12,
+      borderRadius: "999px",
+    });
+
     const moveCursor = (e) => {
+      // GSAP will animate transform to the target coordinates.
       gsap.to(dot, {
         x: e.clientX,
         y: e.clientY,
-        duration: 0.2,
+        duration: 0.18,
         ease: "power3.out",
       });
     };
@@ -378,7 +604,7 @@ export default function Home() {
         width: 20,
         height: 20,
         borderRadius: "999px",
-        duration: 0.2,
+        duration: 0.18,
         ease: "power3.out",
       });
     };
@@ -388,7 +614,7 @@ export default function Home() {
         width: 12,
         height: 12,
         borderRadius: "999px",
-        duration: 0.2,
+        duration: 0.18,
         ease: "power3.out",
       });
     };
@@ -396,31 +622,42 @@ export default function Home() {
     window.addEventListener("mousemove", moveCursor);
 
     // detect hover on clickable elements
-    document.querySelectorAll("button, a, [data-cursor]")
-      .forEach((el) => {
-        el.addEventListener("mouseenter", pointerEnter);
-        el.addEventListener("mouseleave", pointerLeave);
-      });
+    const interactiveEls = Array.from(
+      document.querySelectorAll("button, a, [data-cursor]")
+    );
+    interactiveEls.forEach((el) => {
+      el.addEventListener("mouseenter", pointerEnter);
+      el.addEventListener("mouseleave", pointerLeave);
+    });
 
     return () => {
       window.removeEventListener("mousemove", moveCursor);
-      document.body.style.cursor = "auto";
+      interactiveEls.forEach((el) => {
+        el.removeEventListener("mouseenter", pointerEnter);
+        el.removeEventListener("mouseleave", pointerLeave);
+      });
+      document.body.style.cursor = prevCursor || "auto";
     };
   }, []);
+
+  // Provide hoverIntensity/enableHover values here
+  const hoverIntensity = 0.5;
+  const enableHover = true;
+
   return (
     <div
       style={{ width: "100%", height: "100vh", position: "relative" }}
       className="flex justify-center items-center relative"
     >
-       <div
-      ref={dotRef}
-      className="fixed top-0 left-0 w-3 h-3 bg-[#79ff20] rounded-full pointer-events-none z-[9999]"
-    ></div>
+      <div
+        ref={dotRef}
+        className="hidden md:block fixed top-0 left-0 w-3 h-3 bg-[#79ff20] rounded-full pointer-events-none z-[9999]"
+      />
       <GradientBlinds
         gradientColors={["#FF9FFC", "#5227FF"]}
         angle={20}
-        noise={0.3}
-        blindCount={12}
+        noise={0.4}
+        blindCount={15}
         blindMinWidth={50}
         spotlightRadius={0.5}
         spotlightSoftness={1}
@@ -430,18 +667,31 @@ export default function Home() {
         shineDirection="left"
         mixBlendMode="lighten"
       />
-      <h1 className="absolute z-1 text-2xl text-center left-1/2 transform -translate-x-1/2 -translate-y-10 font-bold md:text-9xl leading-30">
-        Mohammed
-        <br />
-        Adnan Cholayil
-      </h1>
-      <div className="absolute -translate-x-1 translate-y-40 flex gap-5">
-        <button className="bg-[#30303054] py-3 px-10 text-4xl text-center items-center flex justify-items-center self-center  place-self-center-safe font-bold border border-[#707070b6] text-gray-100 rounded-[50px] cursor-none hover:bg-[#8a8a8a59] hover:scale-105 transform duration-300 backdrop-blur-[1px] hover:shadow-sm shadow-[#cccccca2]">
-          explore
-        </button>
-        <button className="bg-[#30303054] py-3 px-10 text-4xl text-center items-center flex justify-items-center self-center  place-self-center-safe font-bold border border-[#707070b6] text-gray-100 rounded-[50px] cursor-none hover:bg-[#8a8a8a59] hover:scale-105 transform duration-300 backdrop-blur-[1px] hover:shadow-sm shadow-[#cccccca2]">
-          Contact
-        </button>
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          pointerEvents: "none",
+        }}
+      >
+        <a
+          href="https://www.instagram.com/4dnan.c/"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ textDecoration: "none", pointerEvents: "auto", cursor: "none" }}
+        >
+          <FuzzyText
+            baseIntensity={0.1}
+            hoverIntensity={0.4}
+            enableHover={enableHover}
+            fontSize="clamp(4.5rem, 12vw, 14rem)"
+          >
+            4dnan.c
+          </FuzzyText>
+        </a>
       </div>
     </div>
   );

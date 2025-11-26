@@ -43,7 +43,7 @@ export default function Nav() {
 
   return (
     <>
-      <div className="fixed z-10 w-[95%] h-16 md:h-24 bg-[#14141418] backdrop-blur-xs flex items-center justify-between px-5 md:px-8 border border-gray-200/20 border-0.5 rounded-[50px] top-0 left-1/2 transform -translate-x-1/2 mt-4">
+      <div className="fixed z-10 w-[95%] text-white h-16 md:h-24 bg-[#3f3f3f2f] backdrop-blur-xs flex items-center justify-between px-5 md:px-8 border border-gray-200/20 border-0.5 rounded-[50px] top-0 left-1/2 transform -translate-x-1/2 mt-4">
         <h1 className="md:text-5xl text-2xl font-semibold leading-tight">Portfolio</h1>
 
         <>
@@ -68,7 +68,7 @@ export default function Nav() {
         {" "}
         <IconXboxX
           size={50}
-          className="absolute right-0 md:right-7 top-0 m-5 md:m-10 cursor-pointer opacity-70"
+          className="absolute right-0 md:right-7 top-0 m-5 md:m-10 cursor-pointer opacity-70 text-white"
           onClick={closeMenu}
         />
         <div className="baner text-5xl md:text-8xl font-bold flex flex-col justify-center items-center gap-4 md:gap-10 uppercase relative">
@@ -79,10 +79,10 @@ export default function Nav() {
             About
           </h4>
           <h4 className="w-full text-center py-1 md:py-4 cursor-pointer text-white opacity-70 hover:opacity-100 hover:text-violet-200 duration-300 transition">
-            Skills
+            Projects
           </h4>
           <h4 className="w-full text-center py-1 md:py-4 cursor-pointer text-white opacity-70 hover:opacity-100 hover:text-violet-200 duration-300 transition">
-            Projects
+            Skills
           </h4>
           <h4 className="w-full text-center py-1 md:py-4 cursor-pointer text-white opacity-70 hover:opacity-100 hover:text-violet-200 duration-300 transition">
             Contact
