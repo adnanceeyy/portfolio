@@ -681,7 +681,7 @@ export default function Home() {
           href="https://www.instagram.com/4dnan.c/"
           target="_blank"
           rel="noopener noreferrer"
-          style={{ textDecoration: "none", pointerEvents: "auto", cursor: "none" }}
+          style={{ textDecoration: "none", pointerEvents: "auto", cursor: "none"}}
         >
           <FuzzyText
             baseIntensity={0.1}

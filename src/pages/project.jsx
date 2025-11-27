@@ -1,5 +1,6 @@
 import InfiniteMenu from "@/components/InfiniteMenu";
 import React from "react";
+import ProjectPageName from "./projectpagename";
 
 export default function Project() {
   const items = [
@@ -45,6 +46,7 @@ export default function Project() {
 
       <div style={{ height: "100vh", position: "relative" }}>
         <InfiniteMenu items={items} />
+        <ProjectPageName/>
       </div>
 
   );
