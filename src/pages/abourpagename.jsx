@@ -7,10 +7,10 @@ export default function AboutPageName() {
   };
 
   return (
-    <div className="absolute bottom-10 right-5">
+    <div className="absolute bottom-5 md:bottom-10 right-5">
       <SplitText
         text="AboutPage"
-        className="text-8xl font-bold text-[#ffffff]"
+        className=" text-4xl md:text-8xl font-bold text-[#ffffff]"
         delay={100}
         duration={0.6}
         ease="power3.out"
